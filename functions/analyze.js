@@ -1,23 +1,24 @@
 // functions/analyze.js
-export const onRequestPost = async ({ request, env }) => {
-  if (!env.OPENAI_API_KEY) {
-    return new Response(JSON.stringify({
-      error: "server misconfig: missing OPENAI_API_KEY"
-    }), { status: 500, headers: { "Content-Type": "application/json" } });
-  }
-
 export const onRequestOptions = async ({ request }) =>
   new Response(null, { headers: corsHeaders(request) });
 
 export const onRequestPost = async ({ request, env }) => {
+  // 1) 키 가드
+  const apiKey = (env.OPENAI_API_KEY || "").trim();
+  if (!apiKey) {
+    return json({ error: "server misconfig: missing OPENAI_API_KEY" }, 500, request);
+  }
+
   try {
-    const { word } = await request.json();
+    // 2) 입력 검증
+    const { word } = await request.json().catch(() => ({}));
     if (!word || typeof word !== "string") {
       return json({ error: "word is required" }, 400, request);
     }
 
+    // 3) OpenAI Responses API 호출
     const payload = {
-      model: "gpt-5-mini",
+      model: "gpt-5-mini",         // 필요 시 gpt-5로 교체
       input: [
         { role: "system", content: "You are a precise English morphology & etymology tutor. Return strict JSON only." },
         { role: "user", content:
@@ -37,20 +38,21 @@ Rules:
 - Output JSON only (no code fences).` },
         { role: "user", content: String(word).trim() }
       ],
-      max_output_tokens: 600
+      // temperature: 0.2,   // ❌ Reasoning 모델은 미지원 → 제거
+      max_output_tokens: 600       // ✅ Responses API에서 사용
     };
 
     const r = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${env.OPENAI_API_KEY}`
+        "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify(payload)
     });
 
     if (!r.ok) {
-      const detail = await r.text().catch(()=>"");
+      const detail = await r.text().catch(() => "");
       return json({ error: "OpenAI error", detail }, 502, request);
     }
 
@@ -61,9 +63,10 @@ Rules:
 
     const raw = String(textOut).replace(/^```json|```$/g, "").trim();
 
-    // 항상 JSON으로 응답되도록 시도
     let obj;
-    try { obj = JSON.parse(raw); } catch { obj = { raw, error: "Model did not return strict JSON" }; }
+    try { obj = JSON.parse(raw); }
+    catch { obj = { raw, error: "Model did not return strict JSON" }; }
+
     return json(obj, 200, request);
 
   } catch (e) {
@@ -77,6 +80,7 @@ function json(obj, status = 200, request) {
     headers: { ...corsHeaders(request), "Content-Type": "application/json" }
   });
 }
+
 function corsHeaders(request) {
   const origin = request.headers.get("Origin") || "*";
   return {
@@ -85,6 +89,4 @@ function corsHeaders(request) {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Vary": "Origin"
   };
-
 }
-
