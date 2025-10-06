@@ -14,7 +14,6 @@ export const onRequestPost = async ({ request, env }) => {
 
     const payload = {
       model: "gpt-5-mini", // 필요시 gpt-5
-      reasoning: { effort: "low" }
       input: [
         {
           role: "system",
@@ -46,7 +45,7 @@ Rules:
       // ✅ Responses API JSON 모드
       text: { format: { type: "json_object" } },
       // Reasoning 모델은 temperature/top_p 미지원
-      max_output_tokens: 2000
+      max_output_tokens: 2048
     };
 
     const r = await fetch("https://api.openai.com/v1/responses", {
@@ -120,6 +119,7 @@ function corsHeaders(request) {
     "Vary": "Origin"
   };
 }
+
 
 
 
