@@ -37,7 +37,6 @@ Rules:
 - Output JSON only (no code fences).` },
         { role: "user", content: String(word).trim() }
       ],
-      temperature: 0.2,
       max_output_tokens: 600
     };
 
@@ -88,3 +87,4 @@ function corsHeaders(request) {
   };
 
 }
+
