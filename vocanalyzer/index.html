@@ -11,7 +11,7 @@
   <button id="analbtn">분석하기</button>
   <pre id="ResultArea"></pre>
 
-  <script>
+ <script>
   document.getElementById("analbtn").addEventListener("click", async () => {
     const word = document.getElementById("wordinput").value.trim();
     if (!word) return alert("단어를 입력하세요!");
@@ -19,19 +19,25 @@
     const out = document.getElementById("ResultArea");
     out.textContent = "분석 중...";
 
-    const res = await fetch("/analyze", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ word })
-    });
-
-    const text = await res.text();
     try {
-      out.textContent = JSON.stringify(JSON.parse(text), null, 2);
-    } catch {
-      out.textContent = text;
+      const res = await fetch("/analyze", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ word })
+      });
+
+      const text = await res.text(); // 항상 텍스트로 받고
+      let data;
+      try { data = JSON.parse(text); } catch { data = { raw: text }; }
+
+      out.textContent = JSON.stringify({
+        status: res.status, ok: res.ok, data
+      }, null, 2);
+    } catch (e) {
+      out.textContent = "요청 실패: " + (e?.message || e);
     }
   });
-  </script>
+</script>
 </body>
+
 </html>
