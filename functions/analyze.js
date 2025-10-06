@@ -24,14 +24,14 @@ export const onRequestPost = async ({ request, env }) => {
           role: "user",
           content: [{ type: "input_text", text:
 `다음 스키마의 JSON으로만 응답하세요:
-{
-  "단어": string,                                  // 입력 단어
-  "분석 결과": { "접두어": string|null, "어근": string|null, "접미사": string|null, "기타 음소": string[] },
-  "단어 뜻": { "한국어": string, "영영": string },       // kr은 한국어, en은 간단한 영문 정의(1줄)
-  "어원": string,                             // 한국어로 1~2문장
-  "분석 결과": { "접두어": string, "어근": string, "접미사": string }, // 각 1문장, 한국어
-  "쉽게 외우려면?": string                         // 연상 이미지 설명(한국어 1~2문장)
-}
+
+  "단어": string,   \                               // 입력 단어
+  "\n분석 결과":  "접두어": string|null, "어근": string|null, "접미사": string|null, "기타 음소": string[] ,
+  "\n단어 뜻":  "한국어": string, "영영": string ,       // kr은 한국어, en은 간단한 영문 정의(1줄)
+  "\n어원": string,                             // 한국어로 1~2문장
+  "\n분석 결과":  "접두어": string, "어근": string, "접미사": string , // 각 1문장, 한국어
+  "\n쉽게 외우려면?": string                         // 연상 이미지 설명(한국어 1~2문장)
+
 규칙:
 - 모든 텍스트 값은 한국어로 작성합니다. (단, meaning.en은 영어 1줄)
 - 접두/접미사가 불명확하면 null 로 지정합니다.
@@ -119,6 +119,7 @@ function corsHeaders(request) {
     "Vary": "Origin"
   };
 }
+
 
 
 
