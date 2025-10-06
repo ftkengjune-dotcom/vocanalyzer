@@ -17,25 +17,25 @@ export const onRequestPost = async ({ request, env }) => {
       input: [
         {
           role: "system",
-          content: [{ type: "input_text", text: "You are a precise English morphology & etymology tutor. Return strict JSON only." }]
+          content: [{ type: "input_text", text: "당신은 한국 학습자를 위한 영어 형태론/어원 튜터입니다. \
+항상 한국어로만 답하고, 반드시 JSON만 반환하세요." }]
         },
         {
           role: "user",
           content: [{ type: "input_text", text:
-`Analyze the English word strictly as JSON with this schema:
+`다음 스키마의 JSON으로만 응답하세요:
 {
-  "word": string,
+  "word": string,                                  // 입력 단어
   "segments": { "prefix": string|null, "root": string|null, "suffix": string|null, "other_morphemes": string[] },
-  "meaning": { "kr": string, "en": string },
-  "etymology": string,
-  "why_each_part": { "prefix": string, "root": string, "suffix": string },
-  "mnemonic_image": string
+  "meaning": { "kr": string, "en": string },       // kr은 한국어, en은 간단한 영문 정의(1줄)
+  "etymology": string,                             // 한국어로 1~2문장
+  "why_each_part": { "prefix": string, "root": string, "suffix": string }, // 각 1문장, 한국어
+  "mnemonic_image": string                         // 연상 이미지 설명(한국어 1~2문장)
 }
-Rules:
-- If no clear prefix/suffix, set null.
-- Keep it accurate; avoid hallucinating morphemes.
-- 'etymology' 1-2 sentences.
-- Output JSON only (no code fences).` }]
+규칙:
+- 모든 텍스트 값은 한국어로 작성합니다. (단, meaning.en은 영어 1줄)
+- 접두/접미사가 불명확하면 null 로 지정합니다.
+- JSON만 출력하고, 코드블록/추가 문장은 절대 쓰지 마세요.` }]
         },
         {
           role: "user",
@@ -119,6 +119,7 @@ function corsHeaders(request) {
     "Vary": "Origin"
   };
 }
+
 
 
 
