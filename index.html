@@ -4,30 +4,48 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>단어 분석 도우미</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system; max-width: 720px; margin: 40px auto; padding: 0 16px; }
+    h1 { font-size: 22px; margin-bottom: 12px; }
+    .row { display: flex; gap: 8px; }
+    input[type="text"] { flex: 1; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; }
+    button { padding: 10px 16px; border: 1px solid #333; background:#111; color:#fff; border-radius:10px; cursor:pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    #ResultArea { margin-top: 18px; white-space: pre-wrap; line-height: 1.6; border: 1px solid #eee; border-radius: 10px; padding: 12px; }
+  </style>
 </head>
 <body>
   <h1>단어 분석 도우미</h1>
-  <input id="wordinput" type="text" placeholder="영어 단어 입력" />
-  <button id="analbtn">분석하기</button>
+  <div class="row">
+    <input id="wordinput" type="text" placeholder="영어 단어 입력 (예: reconstruction)" />
+    <button id="analbtn">분석하기</button>
+  </div>
   <pre id="ResultArea"></pre>
 
-<script>
-function renderResult(j) {
-  // 서버가 영어 스키마 또는 한국어 스키마로 줄 수 있으니 둘 다 커버
-  const word = j.word ?? j["단어"] ?? "";
-  const segments = j.segments ?? j["분석 결과"] ?? {};
-  const meaning = j.meaning ?? j["단어 뜻"] ?? {};
-  const etymology = j.etymology ?? j["어원"] ?? "";
-  const mnemonic = j.mnemonic_image ?? j["쉽게 외우려면?"] ?? "";
+  <script>
+  const $input = document.getElementById("wordinput");
+  const $btn = document.getElementById("analbtn");
+  const $out = document.getElementById("ResultArea");
 
-  const lines = [];
+  function setBusy(b) {
+    $btn.disabled = b;
+    $btn.textContent = b ? "분석 중..." : "분석하기";
+  }
 
-  if (word) lines.push(`● 단어: ${word}`);
+  function renderResult(j) {
+    // 영어/한국어 스키마 모두 지원
+    const word      = j.word ?? j["단어"] ?? "";
+    const segments  = j.segments ?? j["분석 결과"] ?? {};
+    const meaning   = j.meaning ?? j["단어 뜻"] ?? {};
+    const etymology = j.etymology ?? j["어원"] ?? "";
+    const mnemonic  = j.mnemonic_image ?? j["쉽게 외우려면?"] ?? "";
 
-  // 1) 형태소 구분: 두 가지 케이스(영문 스키마 / 국문 스키마) 모두 처리
-  if (segments) {
+    const lines = [];
+    if (word) lines.push(`● 단어: ${word}`);
+
+    // 1) 형태소/분석 결과
     // 영어 스키마: { prefix, root, suffix, other_morphemes[] }
-    if (segments.prefix || segments.root || segments.suffix || (Array.isArray(segments.other_morphemes) && segments.other_morphemes.length)) {
+    if (segments && (segments.prefix || segments.root || segments.suffix || Array.isArray(segments.other_morphemes))) {
       if (segments.prefix)  lines.push(`● 접두어: ${segments.prefix}`);
       if (segments.root)    lines.push(`● 어근: ${segments.root}`);
       if (segments.suffix)  lines.push(`● 접미사: ${segments.suffix}`);
@@ -35,35 +53,70 @@ function renderResult(j) {
         lines.push(`● 기타 구성: ${segments.other_morphemes.join(", ")}`);
       }
     }
-    // 한국어 스키마: { "접두어": "...", "어근": "...", "접미사": "..." } (설명 문장)
-    if (segments["접두어"] || segments["어근"] || segments["접미사"]) {
+    // 한국어 스키마(설명 문장): { "접두어": "...", "어근": "...", "접미사": "..." }
+    if (segments && (segments["접두어"] || segments["어근"] || segments["접미사"])) {
       if (segments["접두어"]) lines.push(`● 접두어: ${segments["접두어"]}`);
       if (segments["어근"])   lines.push(`● 어근: ${segments["어근"]}`);
       if (segments["접미사"]) lines.push(`● 접미사: ${segments["접미사"]}`);
     }
+
+    // 2) 뜻
+    const kr = meaning.kr ?? meaning["한국어"];
+    const en = meaning.en ?? meaning["영영"];
+    if (kr) lines.push(`● 뜻(한): ${kr}`);
+    if (en) lines.push(`● 뜻(영): ${en}`);
+
+    // 3) 어원
+    if (etymology) lines.push(`● 어원: ${etymology}`);
+
+    // 4) 연상 이미지
+    if (mnemonic) lines.push(`● 연상 이미지: ${mnemonic}`);
+
+    // 에러 응답 처리(백엔드에서 error/detail 보낼 때)
+    if (j.error) {
+      lines.length = 0;
+      lines.push("오류가 발생했습니다.");
+      lines.push(`- error: ${j.error}`);
+      if (j.detail) lines.push(`- detail: ${typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail)}`);
+    }
+
+    // 아무 것도 못 뽑았으면 원문 노출(디버깅용)
+    if (lines.length === 0) {
+      $out.textContent = typeof j === "string" ? j : JSON.stringify(j, null, 2);
+      return;
+    }
+
+    $out.textContent = lines.join("\n");
   }
 
-  // 2) 뜻
-  const kr = meaning.kr ?? meaning["한국어"];
-  const en = meaning.en ?? meaning["영영"];
-  if (kr) lines.push(`● 뜻(한): ${kr}`);
-  if (en) lines.push(`● 뜻(영): ${en}`);
+  async function analyze() {
+    const word = ($input.value || "").trim();
+    if (!word) return alert("단어를 입력하세요!");
+    setBusy(true);
+    $out.textContent = "분석 중...";
 
-  // 3) 어원
-  if (etymology) lines.push(`● 어원: ${etymology}`);
+    try {
+      const res = await fetch("/analyze", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ word })
+      });
 
-  // 4) 연상 이미지
-  if (mnemonic) lines.push(`● 연상 이미지: ${mnemonic}`);
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); }
+      catch { data = { raw: text }; }
 
-  // ---- 출력 ----
-  const text = lines.join("\n");
+      renderResult(data);
+    } catch (e) {
+      $out.textContent = "요청 실패: " + (e?.message || e);
+    } finally {
+      setBusy(false);
+    }
+  }
 
-  // 안전: textContent로 넣고, 줄바꿈은 CSS pre-wrap으로 표시
-  const $out = document.getElementById("ResultArea");
-  $out.textContent = text;                  // 중괄호/따옴표 없음, XSS 안전
-  $out.style.whiteSpace = "pre-wrap";       // 줄바꿈 보존
-}
-</script>
+  $btn.addEventListener("click", analyze);
+  $input.addEventListener("keydown", (e) => { if (e.key === "Enter") analyze(); });
+  </script>
 </body>
-
 </html>
