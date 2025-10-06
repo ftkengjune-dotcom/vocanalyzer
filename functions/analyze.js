@@ -76,20 +76,32 @@ Rules:
 };
 
 function extractText(data) {
-  if (data?.output_text) {
-    if (Array.isArray(data.output_text)) return data.output_text.join("\n");
-    return String(data.output_text);
-  }
-  const chunks = [];
-  const outputs = Array.isArray(data?.output) ? data.output : [];
-  for (const item of outputs) {
-    const content = Array.isArray(item?.content) ? item.content : [];
-    for (const c of content) {
-      if (c?.type === "output_text" && typeof c?.text === "string") chunks.push(c.text);
-    }
-  }
-  return chunks.join("\n");
-}
++   // 1) 편의 필드가 있으면 우선 사용
++   if (data?.output_text) {
++     if (Array.isArray(data.output_text)) return data.output_text.join("\n");
++     return String(data.output_text);
++   }
++
++   // 2) 표준 output[*].content[*].text 에서 "타입 무시"하고 전부 수집
++   const chunks = [];
++   const outputs = Array.isArray(data?.output) ? data.output : [];
++   for (const item of outputs) {
++     const content = Array.isArray(item?.content) ? item.content : [];
++     for (const c of content) {
++       if (typeof c?.text === "string") chunks.push(c.text);
++     }
++   }
++   if (chunks.length) return chunks.join("\n");
++
++   // 3) 구(舊) 호환: choices[].message.content 형태도 대비
++   const choice = data?.choices?.[0];
++   if (choice?.message?.content) return String(choice.message.content);
++
++   // 4) 마지막 안전장치: 요약 텍스트/기타 필드 탐색
++   if (typeof data?.summary_text === "string") return data.summary_text;
++
++   return "";
++ }
 
 function json(obj, status = 200, request) {
   return new Response(JSON.stringify(obj), {
@@ -107,4 +119,5 @@ function corsHeaders(request) {
     "Vary": "Origin"
   };
 }
+
 
