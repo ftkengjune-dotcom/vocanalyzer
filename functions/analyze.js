@@ -3,33 +3,27 @@ export const onRequestOptions = async ({ request }) =>
   new Response(null, { headers: corsHeaders(request) });
 
 export const onRequestPost = async ({ request, env }) => {
-  // 1) 키 가드
   const apiKey = (env.OPENAI_API_KEY || "").trim();
-  if (!apiKey) {
-    return json({ error: "server misconfig: missing OPENAI_API_KEY" }, 500, request);
-  }
+  if (!apiKey) return json({ error: "server misconfig: missing OPENAI_API_KEY" }, 500, request);
 
   try {
-    // 2) 입력 검증
     const { word } = await request.json().catch(() => ({}));
     if (!word || typeof word !== "string") {
       return json({ error: "word is required" }, 400, request);
     }
 
-    // 3) OpenAI Responses API 호출 (JSON 모드 on)
+    // ✅ 입력 content.type은 "input_text"
+    // ✅ JSON 모드: response_format
     const payload = {
-      model: "gpt-5-mini", // 필요시 gpt-5로
+      model: "gpt-5-mini", // 필요 시 gpt-5
       input: [
         {
           role: "system",
-          content: [
-            { type: "text", text: "You are a precise English morphology & etymology tutor. Return strict JSON only." }
-          ]
+          content: [{ type: "input_text", text: "You are a precise English morphology & etymology tutor. Return strict JSON only." }]
         },
         {
           role: "user",
-          content: [
-            { type: "text", text:
+          content: [{ type: "input_text", text:
 `Analyze the English word strictly as JSON with this schema:
 {
   "word": string,
@@ -43,18 +37,15 @@ Rules:
 - If no clear prefix/suffix, set null.
 - Keep it accurate; avoid hallucinating morphemes.
 - 'etymology' 1-2 sentences.
-- Output JSON only (no code fences).` }
-          ]
+- Output JSON only (no code fences).` }]
         },
         {
           role: "user",
-          content: [{ type: "text", text: String(word).trim() }]
+          content: [{ type: "input_text", text: String(word).trim() }]
         }
       ],
-      // ❗ JSON 모드: Responses API는 text.format으로 설정
-      text: { format: { type: "json_object" } },
-      // Reasoning 모델은 temperature 미지원이니 생략
-      max_output_tokens: 600
+      response_format: { type: "json_object" }, // ✅ JSON만 반환
+      max_output_tokens: 600                   // ✅ reasoning 모델에서 OK
     };
 
     const r = await fetch("https://api.openai.com/v1/responses", {
@@ -73,35 +64,33 @@ Rules:
 
     const data = await r.json();
 
-    // 4) 출력 텍스트 안전 추출 (여러 형태 대비)
+    // ✅ 출력은 output_text 세그먼트에서 꺼내기
     const textOut = extractText(data).trim();
     let obj;
     try { obj = JSON.parse(textOut); }
-    catch {
-      // JSON 모드인데도 실패하면 원문을 보여줌
-      obj = { raw: textOut, error: "Model did not return strict JSON" };
-    }
+    catch { obj = { raw: textOut, error: "Model did not return strict JSON" }; }
 
     return json(obj, 200, request);
-
   } catch (e) {
     return json({ error: e?.message || "server error" }, 500, request);
   }
 };
 
 function extractText(data) {
-  // 1) 편의 필드(output_text)가 있으면 우선
+  // 편의 필드가 있으면 우선 사용
   if (data?.output_text) {
     if (Array.isArray(data.output_text)) return data.output_text.join("\n");
     return String(data.output_text);
   }
-  // 2) 표준 구조에서 content 배열의 text 모으기
+  // 표준 구조에서 output_text 세그먼트 모으기
   const chunks = [];
   const outputs = Array.isArray(data?.output) ? data.output : [];
   for (const item of outputs) {
     const content = Array.isArray(item?.content) ? item.content : [];
     for (const c of content) {
-      if (typeof c?.text === "string") chunks.push(c.text);
+      if (c?.type === "output_text" && typeof c?.text === "string") {
+        chunks.push(c.text);
+      }
     }
   }
   return chunks.join("\n");
