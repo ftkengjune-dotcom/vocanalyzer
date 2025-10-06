@@ -25,12 +25,12 @@ export const onRequestPost = async ({ request, env }) => {
           content: [{ type: "input_text", text:
 `다음 스키마의 JSON으로만 응답하세요:
 {
-  "word": string,                                  // 입력 단어
-  "segments": { "prefix": string|null, "root": string|null, "suffix": string|null, "other_morphemes": string[] },
-  "meaning": { "kr": string, "en": string },       // kr은 한국어, en은 간단한 영문 정의(1줄)
-  "etymology": string,                             // 한국어로 1~2문장
-  "why_each_part": { "prefix": string, "root": string, "suffix": string }, // 각 1문장, 한국어
-  "mnemonic_image": string                         // 연상 이미지 설명(한국어 1~2문장)
+  "단어": string,                                  // 입력 단어
+  "분석 결과": { "접두어": string|null, "어근": string|null, "접미사": string|null, "기타 음소": string[] },
+  "단어 뜻": { "한국어": string, "영영": string },       // kr은 한국어, en은 간단한 영문 정의(1줄)
+  "어원": string,                             // 한국어로 1~2문장
+  "분석 결과": { "접두어": string, "어근": string, "접미사": string }, // 각 1문장, 한국어
+  "쉽게 외우려면?": string                         // 연상 이미지 설명(한국어 1~2문장)
 }
 규칙:
 - 모든 텍스트 값은 한국어로 작성합니다. (단, meaning.en은 영어 1줄)
@@ -119,6 +119,7 @@ function corsHeaders(request) {
     "Vary": "Origin"
   };
 }
+
 
 
 
