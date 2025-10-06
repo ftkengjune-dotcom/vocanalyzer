@@ -18,7 +18,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     // 3) OpenAI Responses API 호출
     const payload = {
-      model: "gpt-5-mini",         // 필요 시 gpt-5로 교체
+      model: "gpt-5-mini",
       input: [
         { role: "system", content: "You are a precise English morphology & etymology tutor. Return strict JSON only." },
         { role: "user", content:
@@ -38,7 +38,7 @@ Rules:
 - Output JSON only (no code fences).` },
         { role: "user", content: String(word).trim() }
       ],
-      // temperature: 0.2,   // ❌ Reasoning 모델은 미지원 → 제거
+      // temperature: 0.2,   // ❌ reasoning 모델은 미지원 → 제거
       max_output_tokens: 600       // ✅ Responses API에서 사용
     };
 
