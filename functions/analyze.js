@@ -63,7 +63,7 @@ Rules:
     }
 
     const data = await r.json();
-    const textOut = extractText(data).trim();
+    const textOut = extractText(data).trim() || JSON.stringify(data);
 
     let obj;
     try { obj = JSON.parse(textOut); }
@@ -119,5 +119,6 @@ function corsHeaders(request) {
     "Vary": "Origin"
   };
 }
+
 
 
