@@ -1,4 +1,11 @@
 // functions/analyze.js
+export const onRequestPost = async ({ request, env }) => {
+  if (!env.OPENAI_API_KEY) {
+    return new Response(JSON.stringify({
+      error: "server misconfig: missing OPENAI_API_KEY"
+    }), { status: 500, headers: { "Content-Type": "application/json" } });
+  }
+
 export const onRequestOptions = async ({ request }) =>
   new Response(null, { headers: corsHeaders(request) });
 
@@ -79,4 +86,5 @@ function corsHeaders(request) {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Vary": "Origin"
   };
+
 }
