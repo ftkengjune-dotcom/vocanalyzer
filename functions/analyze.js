@@ -43,7 +43,7 @@ Rules:
         }
       ],
       // ✅ Responses API JSON 모드
-      text: { format: "json_object" },
+      text: { format: { type: "json_object" } },
       // Reasoning 모델은 temperature/top_p 미지원
       max_output_tokens: 600
     };
@@ -107,3 +107,4 @@ function corsHeaders(request) {
     "Vary": "Origin"
   };
 }
+
