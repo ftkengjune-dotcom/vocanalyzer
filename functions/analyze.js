@@ -16,12 +16,20 @@ export const onRequestPost = async ({ request, env }) => {
       return json({ error: "word is required" }, 400, request);
     }
 
-    // 3) OpenAI Responses API 호출
+    // 3) OpenAI Responses API 호출 (JSON 모드 on)
     const payload = {
-      model: "gpt-5-mini",
+      model: "gpt-5-mini", // 필요시 gpt-5로
       input: [
-        { role: "system", content: "You are a precise English morphology & etymology tutor. Return strict JSON only." },
-        { role: "user", content:
+        {
+          role: "system",
+          content: [
+            { type: "text", text: "You are a precise English morphology & etymology tutor. Return strict JSON only." }
+          ]
+        },
+        {
+          role: "user",
+          content: [
+            { type: "text", text:
 `Analyze the English word strictly as JSON with this schema:
 {
   "word": string,
@@ -35,11 +43,18 @@ Rules:
 - If no clear prefix/suffix, set null.
 - Keep it accurate; avoid hallucinating morphemes.
 - 'etymology' 1-2 sentences.
-- Output JSON only (no code fences).` },
-        { role: "user", content: String(word).trim() }
+- Output JSON only (no code fences).` }
+          ]
+        },
+        {
+          role: "user",
+          content: [{ type: "text", text: String(word).trim() }]
+        }
       ],
-      // temperature: 0.2,   // ❌ reasoning 모델은 미지원 → 제거
-      max_output_tokens: 600       // ✅ Responses API에서 사용
+      // ❗ JSON 모드: Responses API는 text.format으로 설정
+      text: { format: { type: "json_object" } },
+      // Reasoning 모델은 temperature 미지원이니 생략
+      max_output_tokens: 600
     };
 
     const r = await fetch("https://api.openai.com/v1/responses", {
@@ -57,15 +72,15 @@ Rules:
     }
 
     const data = await r.json();
-    const textOut =
-      data?.output?.[0]?.content?.[0]?.text ??
-      data?.choices?.[0]?.message?.content ?? "";
 
-    const raw = String(textOut).replace(/^```json|```$/g, "").trim();
-
+    // 4) 출력 텍스트 안전 추출 (여러 형태 대비)
+    const textOut = extractText(data).trim();
     let obj;
-    try { obj = JSON.parse(raw); }
-    catch { obj = { raw, error: "Model did not return strict JSON" }; }
+    try { obj = JSON.parse(textOut); }
+    catch {
+      // JSON 모드인데도 실패하면 원문을 보여줌
+      obj = { raw: textOut, error: "Model did not return strict JSON" };
+    }
 
     return json(obj, 200, request);
 
@@ -73,6 +88,24 @@ Rules:
     return json({ error: e?.message || "server error" }, 500, request);
   }
 };
+
+function extractText(data) {
+  // 1) 편의 필드(output_text)가 있으면 우선
+  if (data?.output_text) {
+    if (Array.isArray(data.output_text)) return data.output_text.join("\n");
+    return String(data.output_text);
+  }
+  // 2) 표준 구조에서 content 배열의 text 모으기
+  const chunks = [];
+  const outputs = Array.isArray(data?.output) ? data.output : [];
+  for (const item of outputs) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    for (const c of content) {
+      if (typeof c?.text === "string") chunks.push(c.text);
+    }
+  }
+  return chunks.join("\n");
+}
 
 function json(obj, status = 200, request) {
   return new Response(JSON.stringify(obj), {
