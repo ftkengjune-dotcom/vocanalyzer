@@ -11,27 +11,59 @@
   <button id="analbtn">분석하기</button>
   <pre id="ResultArea"></pre>
 
-  <script>
-  document.getElementById("analbtn").addEventListener("click", async () => {
-    const word = document.getElementById("wordinput").value.trim();
-    if (!word) return alert("단어를 입력하세요!");
+<script>
+function renderResult(j) {
+  // 서버가 영어 스키마 또는 한국어 스키마로 줄 수 있으니 둘 다 커버
+  const word = j.word ?? j["단어"] ?? "";
+  const segments = j.segments ?? j["분석 결과"] ?? {};
+  const meaning = j.meaning ?? j["단어 뜻"] ?? {};
+  const etymology = j.etymology ?? j["어원"] ?? "";
+  const mnemonic = j.mnemonic_image ?? j["쉽게 외우려면?"] ?? "";
 
-    const out = document.getElementById("ResultArea");
-    out.textContent = "분석 중...";
+  const lines = [];
 
-    const res = await fetch("/analyze", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ word })
-    });
+  if (word) lines.push(`● 단어: ${word}`);
 
-    const text = await res.text();
-    try {
-      out.textContent = JSON.stringify(JSON.parse(text), null, 2);
-    } catch {
-      out.textContent = text;
+  // 1) 형태소 구분: 두 가지 케이스(영문 스키마 / 국문 스키마) 모두 처리
+  if (segments) {
+    // 영어 스키마: { prefix, root, suffix, other_morphemes[] }
+    if (segments.prefix || segments.root || segments.suffix || (Array.isArray(segments.other_morphemes) && segments.other_morphemes.length)) {
+      if (segments.prefix)  lines.push(`● 접두어: ${segments.prefix}`);
+      if (segments.root)    lines.push(`● 어근: ${segments.root}`);
+      if (segments.suffix)  lines.push(`● 접미사: ${segments.suffix}`);
+      if (Array.isArray(segments.other_morphemes) && segments.other_morphemes.length) {
+        lines.push(`● 기타 구성: ${segments.other_morphemes.join(", ")}`);
+      }
     }
-  });
-  </script>
+    // 한국어 스키마: { "접두어": "...", "어근": "...", "접미사": "..." } (설명 문장)
+    if (segments["접두어"] || segments["어근"] || segments["접미사"]) {
+      if (segments["접두어"]) lines.push(`● 접두어: ${segments["접두어"]}`);
+      if (segments["어근"])   lines.push(`● 어근: ${segments["어근"]}`);
+      if (segments["접미사"]) lines.push(`● 접미사: ${segments["접미사"]}`);
+    }
+  }
+
+  // 2) 뜻
+  const kr = meaning.kr ?? meaning["한국어"];
+  const en = meaning.en ?? meaning["영영"];
+  if (kr) lines.push(`● 뜻(한): ${kr}`);
+  if (en) lines.push(`● 뜻(영): ${en}`);
+
+  // 3) 어원
+  if (etymology) lines.push(`● 어원: ${etymology}`);
+
+  // 4) 연상 이미지
+  if (mnemonic) lines.push(`● 연상 이미지: ${mnemonic}`);
+
+  // ---- 출력 ----
+  const text = lines.join("\n");
+
+  // 안전: textContent로 넣고, 줄바꿈은 CSS pre-wrap으로 표시
+  const $out = document.getElementById("ResultArea");
+  $out.textContent = text;                  // 중괄호/따옴표 없음, XSS 안전
+  $out.style.whiteSpace = "pre-wrap";       // 줄바꿈 보존
+}
+</script>
 </body>
+
 </html>
