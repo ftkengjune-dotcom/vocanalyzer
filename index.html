@@ -3,8 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>단어 분석 도우미</title>
+  <title>준쌤의 암기 요정</title>
   <style>
+    .seg-prefix { color:#d00; font-weight:700; } /* 빨강 */
+    .seg-root   { color:inherit; }               /* 검정(기본) */
+    .seg-suffix { color:#06c; font-weight:700; } /* 파랑 */
     body { font-family: ui-sans-serif, system-ui, -apple-system; max-width: 720px; margin: 40px auto; padding: 0 16px; }
     h1 { font-size: 22px; margin-bottom: 12px; }
     .row { display: flex; gap: 8px; }
@@ -15,7 +18,7 @@
   </style>
 </head>
 <body>
-  <h1>단어 분석 도우미</h1>
+  <h1>준쌤의 암기 요정</h1>
   <div class="row">
     <input id="wordinput" type="text" placeholder="영어 단어 입력 (예: reconstruction)" />
     <button id="analbtn">분석하기</button>
@@ -23,6 +26,92 @@
   <pre id="ResultArea"></pre>
 
   <script>
+  function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, m => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  }[m]));
+}
+
+/* 한국어 설명식("접두어 re-는 ...")에서도 원형을 추출하려는 가벼운 규칙 */
+function extractMorphemes(segments) {
+  let prefix=null, root=null, suffix=null;
+
+  // 영어 스키마가 온다면 그대로
+  if (segments && typeof segments === "object") {
+    if (typeof segments.prefix === "string") prefix = segments.prefix.replace(/-$/,"").trim() || null;
+    if (typeof segments.root   === "string") root   = segments.root.replace(/^-|-$/g,"").trim()   || null;
+    if (typeof segments.suffix === "string") suffix = segments.suffix.replace(/^-/, "").trim()     || null;
+  }
+
+  // 한국어 스키마(설명 문장)에서 추출 시도
+  if (!prefix && typeof segments?.["접두어"] === "string") {
+    const m = segments["접두어"].match(/([A-Za-z]+)-|([A-Za-z]+)\b/);
+    prefix = (m && (m[1] || m[2])) || null;
+  }
+  if (!root && typeof segments?.["어근"] === "string") {
+    const m = segments["어근"].match(/\b([A-Za-z]+)\b/);
+    root = (m && m[1]) || null;
+  }
+  if (!suffix && typeof segments?.["접미사"] === "string") {
+    const m = segments["접미사"].match(/-([A-Za-z]+)|\b([A-Za-z]+)\b/);
+    suffix = (m && (m[1] || m[2])) || null;
+  }
+
+  return { prefix, root, suffix };
+}
+
+/* 단어를 접두/어근/접미사로 색칠 (가능한 부분만) */
+function colorizeWord(word, segs) {
+  const w = String(word || "");
+  const lw = w.toLowerCase();
+  const p = segs.prefix ? segs.prefix.toLowerCase() : null;
+  const r = segs.root   ? segs.root.toLowerCase()   : null;
+  const s = segs.suffix ? segs.suffix.toLowerCase() : null;
+
+  let html = "";
+  let pos = 0;
+
+  // 1) 접두어가 "정확히 앞"에 있으면 빨강
+  if (p && lw.startsWith(p)) {
+    const pre = w.slice(0, p.length);
+    html += `<span class="seg-prefix">${escapeHtml(pre)}</span>`;
+    pos = p.length;
+  }
+
+  // 2) 접미사가 "정확히 뒤"에 있으면 위치 기억
+  let suffixStart = null;
+  if (s && lw.endsWith(s)) {
+    suffixStart = w.length - s.length;
+  }
+
+  // 3) 어근이 있으면 그 위치를 찾아 검정으로 표시
+  if (r) {
+    const idx = lw.indexOf(r, pos);
+    if (idx !== -1 && (suffixStart === null || idx + r.length <= suffixStart)) {
+      // 접두어 이후~접미어 이전 사이의 일반 부분(있다면) 추가
+      if (idx > pos) html += escapeHtml(w.slice(pos, idx));
+      // 어근(검정)
+      html += `<span class="seg-root">${escapeHtml(w.slice(idx, idx + r.length))}</span>`;
+      pos = idx + r.length;
+    }
+  }
+
+  // 4) 접미사 처리
+  if (suffixStart !== null) {
+    // 어근 이후~접미사 이전 일반 부분
+    if (pos < suffixStart) html += escapeHtml(w.slice(pos, suffixStart));
+    // 접미사(파랑)
+    html += `<span class="seg-suffix">${escapeHtml(w.slice(suffixStart))}</span>`;
+    pos = w.length;
+  }
+
+  // 5) 남은 부분(아무 규칙에도 안 걸린 중간/끝)은 기본 검정
+  if (pos < w.length) html += escapeHtml(w.slice(pos));
+
+  // 어느 것도 매칭 안 되면(=html이 비어있으면) 원문 반환
+  return html || escapeHtml(w);
+}
+    
   const $input = document.getElementById("wordinput");
   const $btn = document.getElementById("analbtn");
   const $out = document.getElementById("ResultArea");
@@ -120,3 +209,4 @@
   </script>
 </body>
 </html>
+
