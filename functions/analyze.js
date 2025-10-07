@@ -45,7 +45,7 @@ export const onRequestPost = async ({ request, env }) => {
       // ✅ Responses API JSON 모드
       text: { format: { type: "json_object" } },
       // Reasoning 모델은 temperature/top_p 미지원
-      max_output_tokens: 2048
+      max_output_tokens: 2800
     };
 
     const r = await fetch("https://api.openai.com/v1/responses", {
@@ -119,6 +119,7 @@ function corsHeaders(request) {
     "Vary": "Origin"
   };
 }
+
 
 
 
